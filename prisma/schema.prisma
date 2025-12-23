@@ -1,14 +1,95 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  pending
+  in_progress
+  done
+  delivered
+  cancelled
+}
+
+enum PaymentMethod {
+  cash
+  card
+}
+
+model Car {
+  id        Int        @id @default(autoincrement())
+  plate     String     @unique
+  brand     String
+  model     String
+  color     String
+  createdAt DateTime   @default(now())
+
+  detail    CarDetail?
+  orders    WashOrder[]
+}
+
+model CarDetail {
+  id     Int    @id @default(autoincrement())
+  notes  String?
+  carId  Int    @unique
+
+  car    Car    @relation(fields: [carId], references: [id])
+}
+
+model ServiceType {
+  id        Int                  @id @default(autoincrement())
+  name      String
+  basePrice Float
+  duration  Int
+
+  orders    WashOrderService[]
+}
+
+model Employee {
+  id     Int      @id @default(autoincrement())
+  name   String
+
+  orders WashOrder[]
+}
+
+model WashOrder {
+  id         Int                  @id @default(autoincrement())
+  date       DateTime             @default(now())
+  totalPrice Float
+  status     OrderStatus          @default(pending)
+  
+  startedAt  DateTime?
+  completedAt DateTime?
+  deliveredAt DateTime?
+  
+  carId      Int
+  employeeId Int
+
+  car        Car                  @relation(fields: [carId], references: [id])
+  employee   Employee             @relation(fields: [employeeId], references: [id])
+  services   WashOrderService[]
+  payments   Payment[]
+}
+
+model WashOrderService {
+  id            Int         @id @default(autoincrement())
+  orderId       Int
+  serviceTypeId Int
+
+  order         WashOrder    @relation(fields: [orderId], references: [id])
+  service       ServiceType  @relation(fields: [serviceTypeId], references: [id])
+}
+
+model Payment {
+  id        Int           @id @default(autoincrement())
+  date      DateTime      @default(now())
+  amount    Float
+  method    PaymentMethod
+
+  orderId   Int
+  order     WashOrder     @relation(fields: [orderId], references: [id])
 }
