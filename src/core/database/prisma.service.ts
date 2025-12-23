@@ -7,7 +7,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     const isDev = process.env.NODE_ENV === 'development';
-
     super({
       log: [
         ...(isDev ? [{ emit: 'stdout', level: 'query' }] : []),
@@ -44,7 +43,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     }
 
     this.logger.log('🧹 Limpiando base de datos...');
-
     try {
       await this.$executeRawUnsafe(`
         DO $$ 
@@ -56,7 +54,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           END LOOP;
         END $$;
       `);
-
       this.logger.log('✅ Base de datos limpiada exitosamente');
     } catch (error) {
       this.logger.error('❌ Error limpiando base de datos:', error);

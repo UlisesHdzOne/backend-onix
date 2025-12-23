@@ -61,9 +61,7 @@ export function isPrismaKnownRequestError(
     return false;
   }
 
-  // Use a generic record to safely use the 'in' operator
-  const errorRecordForMeta = error as unknown as Record<string, unknown>;
-  return !('meta' in errorRecordForMeta) || hasPrismaMeta(error);
+  return !('meta' in error) || hasPrismaMeta(error);
 }
 
 /**
@@ -75,6 +73,8 @@ export function isPrismaClientError(error: unknown): error is Error & { code?: s
   }
 
   const constructorName = error.constructor.name;
+
+  // Check if error has a Prisma code property
   const errorRecord = error as unknown as Record<string, unknown>;
   const code = errorRecord.code;
 
