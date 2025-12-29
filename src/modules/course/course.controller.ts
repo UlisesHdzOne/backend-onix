@@ -45,16 +45,16 @@ export class CourseController {
 
   @Post(':courseId/driven/:drivenId')
   async assignCourseToDriven(
-    @Param('courseId') courseId: number,
-    @Param('drivenId') drivenId: number,
+    @Param('courseId', ParseIntPipe) courseId: number,
+    @Param('drivenId', ParseIntPipe) drivenId: number,
   ) {
     return this.courseService.assignCourseToDriven(drivenId, courseId); // Asigna un curso a un driven
   }
 
   @Delete(':courseId/driven/:drivenId')
   async removeDrivenFromCourse(
-    @Param('courseId') courseId: number,
-    @Param('drivenId') drivenId: number,
+    @Param('courseId', ParseIntPipe) courseId: number,
+    @Param('drivenId', ParseIntPipe) drivenId: number,
   ) {
     return this.courseService.removeDrivenFromCourse(drivenId, courseId); // Remueve un driven de un curso
   }
