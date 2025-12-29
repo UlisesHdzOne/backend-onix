@@ -3,12 +3,69 @@
 
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CourseStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+}
+  
+model Driven {
+  id Int      @id @default(autoincrement())
+  name String @unique
+
+  // Relaciones
+  vehicles Vehicle[] // 1:N
+  profile Profile? // 1:1
+  courses DrivenCourse[] // M:N
+}
+
+  model Course {
+  id        Int             @id @default(autoincrement())
+  name      String          @unique
+  isActive  Boolean         @default(true)
+
+  // Relaciones
+  drivens   DrivenCourse[]  // M:N
+
+  createdAt DateTime @default(now())
+}
+
+model Vehicle {
+  id    Int      @id @default(autoincrement())
+  name  String   @unique
+  drivenId Int?
+  driven Driven? @relation(fields: [drivenId], references: [id])
+}
+
+ 
+
+model Profile {
+  id       Int    @id @default(autoincrement())
+  bio      String
+  drivenId Int    @unique
+  driven   Driven @relation(fields: [drivenId], references: [id])
+}
+
+model DrivenCourse {
+  id        Int      @id @default(autoincrement())
+  drivenId  Int
+  courseId  Int
+
+  // Relaciones
+  driven    Driven  @relation(fields: [drivenId], references: [id])
+  course    Course  @relation(fields: [courseId], references: [id])
+
+  assignedAt DateTime @default(now())
+  status CourseStatus @default(IN_PROGRESS)
+
+  @@unique([drivenId, courseId]) // 🚨 Regla clave: no duplicados
 }
