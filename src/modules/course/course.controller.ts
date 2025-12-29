@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Put,
+  Delete,
+  Patch,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { CourseService } from './course.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
@@ -19,17 +29,17 @@ export class CourseController {
   }
 
   @Get(':id')
-  async findCourseById(@Param('id') id: number) {
+  async findCourseById(@Param('id', ParseIntPipe) id: number) {
     return this.courseService.findCourseById(id); // Obtiene un curso por su ID
   }
 
   @Put(':id')
-  async updateCourse(@Param('id') id: number, @Body() dto: UpdateCourseDto) {
+  async updateCourse(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCourseDto) {
     return this.courseService.updateCourse(id, dto); // Actualiza un curso existente
   }
 
   @Delete(':id')
-  async removeCourse(@Param('id') id: number) {
+  async removeCourse(@Param('id', ParseIntPipe) id: number) {
     return this.courseService.removeCourse(id); // Elimina un curso por su ID
   }
 
@@ -51,8 +61,8 @@ export class CourseController {
 
   @Patch(':courseId/driven/:drivenId/status')
   async updateCourseStatus(
-    @Param('courseId') courseId: number,
-    @Param('drivenId') drivenId: number,
+    @Param('courseId', ParseIntPipe) courseId: number,
+    @Param('drivenId', ParseIntPipe) drivenId: number,
     @Body('status') status: CourseStatusType,
   ) {
     return this.courseService.updateCourseStatus(drivenId, courseId, status); // Actualiza el estado de un driven en un curso
