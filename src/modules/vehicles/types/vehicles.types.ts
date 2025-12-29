@@ -6,5 +6,5 @@ export type DrivenSummaryDto = {
 export type VehicleDto = {
   id: number;
   name: string;
-  driven?: DrivenSummaryDto[];
+  driven?: DrivenSummaryDto; //objeto unico
 };

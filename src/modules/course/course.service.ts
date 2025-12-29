@@ -17,7 +17,7 @@ export class CourseService {
   // ================================
 
   async createCourse(dto: CreateCourseDto) {
-    await this.findCourseByName(dto.name); // Validación de unicidad
+    await this.validateCourseNameNotExists(dto.name); // Validación de unicidad
     return this.prisma.course.create({ data: dto }); // Crear course
   }
 
@@ -59,10 +59,11 @@ export class CourseService {
     return course;
   }
 
-  async findCourseByName(name: string) {
+  async validateCourseNameNotExists(name: string): Promise<void> {
     const course = await this.prisma.course.findUnique({ where: { name } });
-    if (course) throw new ConflictException(`Course with name ${name} already exists`);
-    return course;
+    if (course) {
+      throw new ConflictException(`Course with name ${name} already exists`);
+    }
   }
 
   // ================================

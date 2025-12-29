@@ -101,7 +101,12 @@ export class VehiclesService {
     return {
       id: vehicle.id,
       name: vehicle.name,
-      driven: vehicle.driven ? [{ id: vehicle.driven.id, name: vehicle.driven.name }] : undefined,
+      driven: vehicle.driven
+        ? {
+            id: vehicle.driven.id,
+            name: vehicle.driven.name,
+          }
+        : undefined,
     };
   }
 
@@ -111,7 +116,12 @@ export class VehiclesService {
     return vehicles.map((vehicle) => ({
       id: vehicle.id,
       name: vehicle.name,
-      driven: vehicle.driven ? [{ id: vehicle.driven.id, name: vehicle.driven.name }] : undefined,
+      driven: vehicle.driven
+        ? {
+            id: vehicle.driven.id,
+            name: vehicle.driven.name,
+          }
+        : undefined,
     }));
   }
 }
