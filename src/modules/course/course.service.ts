@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { DrivenService } from '../../modules/driven/driven.service';
-import type { CourseStatusType } from './type/course.types';
+import { CourseStatus } from './dto/update-course-status.dto';
 
 @Injectable()
 export class CourseService {
@@ -79,7 +79,9 @@ export class CourseService {
     if (existing)
       throw new ConflictException(`Driven ${drivenId} is already assigned to course ${courseId}`);
 
-    return this.prisma.drivenCourse.create({ data: { drivenId, courseId, status: 'IN_PROGRESS' } });
+    return this.prisma.drivenCourse.create({
+      data: { drivenId, courseId, status: CourseStatus.IN_PROGRESS },
+    });
   }
 
   async removeDrivenFromCourse(drivenId: number, courseId: number) {
@@ -92,7 +94,7 @@ export class CourseService {
     return this.prisma.drivenCourse.delete({ where: { id: assignment.id } });
   }
 
-  async updateCourseStatus(drivenId: number, courseId: number, status: CourseStatusType) {
+  async updateCourseStatus(drivenId: number, courseId: number, status: CourseStatus) {
     const assignment = await this.prisma.drivenCourse.findUnique({
       where: { drivenId_courseId: { drivenId, courseId } },
     });

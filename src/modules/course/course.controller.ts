@@ -12,7 +12,7 @@ import {
 import { CourseService } from './course.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
-import { CourseStatusType } from './type/course.types';
+import { UpdateCourseStatusDto } from './dto/update-course-status.dto';
 
 @Controller('course')
 export class CourseController {
@@ -63,8 +63,8 @@ export class CourseController {
   async updateCourseStatus(
     @Param('courseId', ParseIntPipe) courseId: number,
     @Param('drivenId', ParseIntPipe) drivenId: number,
-    @Body('status') status: CourseStatusType,
+    @Body() dto: UpdateCourseStatusDto,
   ) {
-    return this.courseService.updateCourseStatus(drivenId, courseId, status); // Actualiza el estado de un driven en un curso
+    return this.courseService.updateCourseStatus(drivenId, courseId, dto.status); // Actualiza el estado de un driven en un curso
   }
 }
