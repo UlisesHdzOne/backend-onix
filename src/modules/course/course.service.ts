@@ -4,6 +4,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { DrivenService } from '../../modules/driven/driven.service';
 import { CourseStatus } from './dto/update-course-status.dto';
+import { CourseResponse } from './types/course.response';
 
 @Injectable()
 export class CourseService {
@@ -16,51 +17,82 @@ export class CourseService {
   // CRUD PRINCIPAL
   // ================================
 
-  async createCourse(dto: CreateCourseDto) {
+  async createCourse(dto: CreateCourseDto): Promise<CourseResponse> {
     await this.validateCourseNameNotExists(dto.name); // Validación de unicidad
-    return this.prisma.course.create({ data: dto }); // Crear course
+    const course = await this.prisma.course.create({ data: dto }); // Crear course
+
+    return {
+      id: course.id,
+      name: course.name,
+      isActive: course.isActive,
+    };
   }
 
-  async findAllCourses() {
-    return this.prisma.course.findMany(); // Obtener todos los courses
+  async findAllCourses(): Promise<CourseResponse[]> {
+    const courses = await this.prisma.course.findMany(); // Obtener todos los courses
+
+    return courses.map((course) => ({
+      id: course.id,
+      name: course.name,
+      isActive: course.isActive,
+    }));
   }
 
-  async updateCourse(id: number, dto: UpdateCourseDto) {
-    await this.findCourseById(id); // Validar existencia
+  async updateCourse(id: number, dto: UpdateCourseDto): Promise<CourseResponse> {
+    await this.ensureCourseExists(id); // Validar existencia
 
     if (dto.name) {
-      const existingCourse = await this.prisma.course.findUnique({ where: { name: dto.name } });
-      if (existingCourse && existingCourse.id !== id) {
-        throw new ConflictException(`Course with name ${dto.name} already exists`);
-      }
+      await this.validateCourseNameNotExists(dto.name);
     }
 
-    return this.prisma.course.update({ where: { id }, data: dto }); // Actualizar course
+    const updated = await this.prisma.course.update({ where: { id }, data: dto }); // Actualizar course
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      isActive: updated.isActive,
+    };
   }
 
-  async removeCourse(id: number) {
-    await this.findCourseById(id); // Validar existencia
+  async removeCourse(id: number): Promise<CourseResponse> {
+    await this.ensureCourseExists(id); // Validar existencia
 
-    const assignments = await this.prisma.drivenCourse.findMany({ where: { courseId: id } });
-    if (assignments.length > 0) {
-      throw new ConflictException(`Course ${id} has assigned drivens and cannot be deleted`);
+    const hasDrivens = await this.prisma.drivenCourse.findFirst({
+      where: { courseId: id },
+      select: { id: true },
+    });
+
+    if (hasDrivens) {
+      throw new ConflictException(`Course ${id} has drivens assigned and cannot be deleted`);
     }
 
-    return this.prisma.course.delete({ where: { id } }); // Eliminar course
+    const deleted = await this.prisma.course.delete({ where: { id } }); // Eliminar course
+
+    return {
+      id: deleted.id,
+      name: deleted.name,
+      isActive: deleted.isActive,
+    };
   }
 
   // ================================
   // MÉTODOS DE VALIDACIÓN / EXISTENCIA
   // ================================
 
-  async findCourseById(id: number) {
-    const course = await this.prisma.course.findUnique({ where: { id } });
-    if (!course) throw new NotFoundException(`Course with id ${id} not found`);
-    return course;
+  // verificar existencia de course
+  async ensureCourseExists(id: number): Promise<void> {
+    const exists = await this.prisma.course.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!exists) throw new NotFoundException(`Course with id ${id} not found`);
   }
 
   async validateCourseNameNotExists(name: string): Promise<void> {
-    const course = await this.prisma.course.findUnique({ where: { name } });
+    const course = await this.prisma.course.findUnique({
+      where: { name },
+      select: { id: true },
+    });
     if (course) {
       throw new ConflictException(`Course with name ${name} already exists`);
     }
@@ -71,8 +103,8 @@ export class CourseService {
   // ================================
 
   async assignCourseToDriven(drivenId: number, courseId: number) {
-    await this.findCourseById(courseId);
-    await this.drivenService.findDrivenById(drivenId);
+    await this.ensureCourseExists(courseId);
+    await this.drivenService.ensureDrivenExists(drivenId);
 
     const existing = await this.prisma.drivenCourse.findUnique({
       where: { drivenId_courseId: { drivenId, courseId } },

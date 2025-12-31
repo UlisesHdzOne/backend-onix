@@ -13,9 +13,13 @@ export class DrivenService {
   // ================================
 
   // Crea un Driven.
-  async createDriven(dto: CreateDrivenDto) {
+  async createDriven(dto: CreateDrivenDto): Promise<DrivenResponse> {
     await this.validateDrivenNameNotExists(dto.name);
-    return this.prisma.driven.create({ data: { name: dto.name } });
+    const driven = await this.prisma.driven.create({ data: { name: dto.name } });
+    return {
+      id: driven.id,
+      name: driven.name,
+    };
   }
 
   // Obtiene todos los Drivens.
@@ -42,7 +46,7 @@ export class DrivenService {
   }
 
   // Actualiza un Driven existente.
-  async updateDriven(id: number, dto: UpdateDrivenDto) {
+  async updateDriven(id: number, dto: UpdateDrivenDto): Promise<DrivenResponse> {
     const current = await this.findDrivenById(id);
 
     // Si el nombre es diferente al actual
@@ -50,14 +54,19 @@ export class DrivenService {
       await this.validateDrivenNameNotExists(dto.name);
     }
 
-    return this.prisma.driven.update({
+    const updated = await this.prisma.driven.update({
       where: { id },
       data: dto,
     });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+    };
   }
 
   // Elimina un Driven.
-  async removeDriven(id: number) {
+  async removeDriven(id: number): Promise<DrivenResponse> {
     const driven = await this.findDrivenById(id);
 
     if (driven.vehicles.length > 0) {
@@ -68,7 +77,12 @@ export class DrivenService {
       throw new ConflictException(`Driven with id ${id} has a profile`);
     }
 
-    return this.prisma.driven.delete({ where: { id } });
+    const deleted = await this.prisma.driven.delete({ where: { id } });
+
+    return {
+      id: deleted.id,
+      name: deleted.name,
+    };
   }
 
   // ================================
@@ -84,7 +98,7 @@ export class DrivenService {
   }
 
   // Valida que un Driven exista por su id y lo retorna.
-  async findDrivenById(id: number) {
+  private async findDrivenById(id: number) {
     const driven = await this.prisma.driven.findUnique({
       where: { id },
       include: {
@@ -96,5 +110,16 @@ export class DrivenService {
       throw new NotFoundException(`Driven with id ${id} not found`);
     }
     return driven;
+  }
+
+  // Valida que un Driven exista por su id.
+  async ensureDrivenExists(id: number): Promise<void> {
+    const exists = await this.prisma.driven.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!exists) {
+      throw new NotFoundException(`Driven with id ${id} not found`);
+    }
   }
 }

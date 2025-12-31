@@ -88,7 +88,7 @@ export class VehiclesService {
     await this.findVehicleById(vehicleId);
 
     // Validación de existencia:Verifica que el Driven exista antes de asociarlo al Vehicle.
-    await this.drivenService.findDrivenById(drivenId);
+    await this.drivenService.ensureDrivenExists(drivenId);
 
     // Aplicación de la relación N–1: Se asigna el drivenId al Vehicle.
     const vehicle = await this.prisma.vehicle.update({

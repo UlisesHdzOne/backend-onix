@@ -22,11 +22,6 @@ export class DrivenController {
     return this.drivenService.findAllDrivenWithVehicle(); // Obtiene todos los drivens con sus vehículos
   }
 
-  @Get(':id')
-  findDrivenById(@Param('id', ParseIntPipe) id: number) {
-    return this.drivenService.findDrivenById(id); // Obtiene un driven por ID
-  }
-
   @Patch(':id')
   updateDriven(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateDrivenDto) {
     return this.drivenService.updateDriven(id, body); // Actualiza un driven existente

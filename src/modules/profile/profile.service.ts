@@ -17,7 +17,7 @@ export class ProfileService {
 
   // Crea un Profile y lo asocia a un Driven.
   async createProfile(drivenId: number, dto: CreateProfileDto) {
-    await this.drivenService.findDrivenById(drivenId);
+    await this.drivenService.ensureDrivenExists(drivenId);
     await this.ensureDrivenHasNoProfile(drivenId);
 
     return this.prisma.profile.create({

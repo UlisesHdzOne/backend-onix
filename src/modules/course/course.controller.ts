@@ -28,11 +28,6 @@ export class CourseController {
     return this.courseService.findAllCourses(); // Obtiene todos los cursos
   }
 
-  @Get(':id')
-  async findCourseById(@Param('id', ParseIntPipe) id: number) {
-    return this.courseService.findCourseById(id); // Obtiene un curso por su ID
-  }
-
   @Put(':id')
   async updateCourse(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCourseDto) {
     return this.courseService.updateCourse(id, dto); // Actualiza un curso existente
