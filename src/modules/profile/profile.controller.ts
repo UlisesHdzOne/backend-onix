@@ -12,9 +12,9 @@ export class ProfileController {
     return this.profileService.createProfile(drivenId, body); // Crea un profile y lo asocia a un driven
   }
 
-  @Get(':id')
-  findProfileById(@Param('id', ParseIntPipe) id: number) {
-    return this.profileService.findProfileById(id); // Obtiene un profile por su id
+  @Get('driven/:drivenId')
+  findProfileByDrivenId(@Param('drivenId', ParseIntPipe) drivenId: number) {
+    return this.profileService.findProfileByDrivenId(drivenId); // Obtiene un profile por su id
   }
 
   @Patch(':id')
