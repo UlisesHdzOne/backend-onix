@@ -3,7 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { DrivenService } from '../driven/driven.service';
-import { VehicleDto } from './types/vehicles.types';
+import { VehicleResponse } from './types/vehicles.response';
 
 @Injectable()
 export class VehiclesService {
@@ -17,13 +17,17 @@ export class VehiclesService {
   // ============================
 
   // Crea un Vehicle.
-  async createVehicle(dto: CreateVehicleDto) {
+  async createVehicle(dto: CreateVehicleDto): Promise<VehicleResponse> {
     await this.validateVehicleNameNotExists(dto.name);
-    return this.prisma.vehicle.create({ data: { name: dto.name } });
+    const created = await this.prisma.vehicle.create({ data: { name: dto.name } });
+    return {
+      id: created.id,
+      name: created.name,
+    };
   }
 
   // Obtiene todos los Vehicles.
-  async findAllVehicles(): Promise<VehicleDto[]> {
+  async findAllVehicles(): Promise<VehicleResponse[]> {
     const vehicles = await this.prisma.vehicle.findMany();
     return vehicles.map((vehicle) => ({
       id: vehicle.id,
@@ -32,23 +36,58 @@ export class VehiclesService {
   }
 
   // Actualiza un Vehicle existente.
-  async updateVehicle(vehicleId: number, dto: UpdateVehicleDto) {
+  async updateVehicle(vehicleId: number, dto: UpdateVehicleDto): Promise<VehicleResponse> {
     await this.findVehicleById(vehicleId);
 
     if (dto.name) {
       await this.validateVehicleNameNotUsedByAnother(vehicleId, dto.name);
     }
 
-    return this.prisma.vehicle.update({
+    const updated = await this.prisma.vehicle.update({
       where: { id: vehicleId },
       data: { name: dto.name },
     });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+    };
   }
 
   // Elimina un Vehicle.
-  async removeVehicle(id: number) {
-    await this.findVehicleById(id);
-    return this.prisma.vehicle.delete({ where: { id } });
+  async removeVehicle(id: number): Promise<VehicleResponse> {
+    const vehicle = await this.findVehicleById(id);
+
+    if (vehicle.drivenId) {
+      throw new ConflictException(`Vehicle with id ${id} has a driven assigned. Unassign first.`);
+    }
+
+    const deleted = await this.prisma.vehicle.delete({ where: { id } });
+
+    return {
+      id: deleted.id,
+      name: deleted.name,
+    };
+  }
+
+  // Falta este endpoint para completar el ciclo
+  async unassignDrivenFromVehicle(vehicleId: number): Promise<VehicleResponse> {
+    const vehicle = await this.findVehicleById(vehicleId);
+
+    if (!vehicle.drivenId) {
+      throw new ConflictException(`Vehicle ${vehicleId} doesn't have a driven assigned.`);
+    }
+
+    const updated = await this.prisma.vehicle.update({
+      where: { id: vehicleId },
+      data: { drivenId: null },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      // driven queda undefined (correcto)
+    };
   }
 
   // ============================
@@ -82,16 +121,22 @@ export class VehiclesService {
 
   // Asigna un Driven a un Vehicle.
   // Regla de dominio: relación N–1 (muchos Vehicles pueden pertenecer a un Driven).
-  async assignDrivenToVehicle(vehicleId: number, drivenId: number): Promise<VehicleDto> {
+  async assignDrivenToVehicle(vehicleId: number, drivenId: number): Promise<VehicleResponse> {
     // Validación de existencia:
     // Verifica que el Vehicle exista antes de asignar la relación.
-    await this.findVehicleById(vehicleId);
+    const vehicle = await this.findVehicleById(vehicleId);
+
+    if (vehicle.drivenId) {
+      throw new ConflictException(
+        `Vehicle ${vehicleId} already has a driven assigned. Unassign first.`,
+      );
+    }
 
     // Validación de existencia:Verifica que el Driven exista antes de asociarlo al Vehicle.
     await this.drivenService.ensureDrivenExists(drivenId);
 
     // Aplicación de la relación N–1: Se asigna el drivenId al Vehicle.
-    const vehicle = await this.prisma.vehicle.update({
+    const updated = await this.prisma.vehicle.update({
       where: { id: vehicleId },
       data: { drivenId },
       include: { driven: true },
@@ -99,19 +144,19 @@ export class VehiclesService {
 
     // Mapeo del resultado a DTO.
     return {
-      id: vehicle.id,
-      name: vehicle.name,
-      driven: vehicle.driven
+      id: updated.id,
+      name: updated.name,
+      driven: updated.driven
         ? {
-            id: vehicle.driven.id,
-            name: vehicle.driven.name,
+            id: updated.driven.id,
+            name: updated.driven.name,
           }
         : undefined,
     };
   }
 
   // Obtiene todos los Vehicles con su Driven asociado.
-  async findAllVehiclesWithDriven(): Promise<VehicleDto[]> {
+  async findAllVehiclesWithDriven(): Promise<VehicleResponse[]> {
     const vehicles = await this.prisma.vehicle.findMany({ include: { driven: true } });
     return vehicles.map((vehicle) => ({
       id: vehicle.id,

@@ -44,4 +44,10 @@ export class VehiclesController {
   ) {
     return this.vehiclesService.assignDrivenToVehicle(id, drivenId); // Asigna un driven a un vehicle
   }
+
+  // En vehicles.controller.ts
+  @Patch(':id/unassign-driven')
+  async unassignDrivenFromVehicle(@Param('id', ParseIntPipe) id: number) {
+    return this.vehiclesService.unassignDrivenFromVehicle(id);
+  }
 }
