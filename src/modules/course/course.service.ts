@@ -4,7 +4,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { DrivenService } from '../../modules/driven/driven.service';
 import { CourseResponse } from './types/course.response';
-import { CourseStatus } from './domain/course-status.enum';
+import { CourseStatus } from '@prisma/client';
 
 @Injectable()
 export class CourseService {
