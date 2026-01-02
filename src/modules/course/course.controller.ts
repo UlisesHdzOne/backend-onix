@@ -13,6 +13,8 @@ import { CourseService } from './course.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateCourseStatusDto } from './dto/update-course-status.dto';
+import { UpdateCourseProgressDto } from './dto/update-course-progress.dto';
+import { UpdateCourseStatusResponse } from './types/course.response';
 
 @Controller('course')
 export class CourseController {
@@ -61,5 +63,14 @@ export class CourseController {
     @Body() dto: UpdateCourseStatusDto,
   ) {
     return this.courseService.updateCourseStatus(drivenId, courseId, dto.status); // Actualiza el estado de un driven en un curso
+  }
+
+  @Patch(':courseId/driven/:drivenId/progress')
+  async updateCourseProgress(
+    @Param('courseId', ParseIntPipe) courseId: number,
+    @Param('drivenId', ParseIntPipe) drivenId: number,
+    @Body() dto: UpdateCourseProgressDto,
+  ): Promise<UpdateCourseStatusResponse> {
+    return this.courseService.updateCourseProgress(drivenId, courseId, dto.progress);
   }
 }

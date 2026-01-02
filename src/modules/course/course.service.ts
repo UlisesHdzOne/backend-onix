@@ -175,16 +175,96 @@ export class CourseService {
 
     this.validateCourseStatusTransition(assignment.status, status);
 
-    const updated = await this.prisma.drivenCourse.update({
+    const updated = (await this.prisma.drivenCourse.update({
       where: { id: assignment.id },
       data: { status },
-    });
+      select: {
+        id: true,
+        drivenId: true,
+        courseId: true,
+        status: true,
+        progress: true,
+        assignedAt: true,
+      },
+    })) as {
+      id: number;
+      drivenId: number;
+      courseId: number;
+      status: CourseStatus;
+      progress: number;
+      assignedAt: Date;
+    };
 
     return {
       id: updated.id,
       drivenId: updated.drivenId,
       courseId: updated.courseId,
       status: updated.status,
+      progress: updated.progress,
+      assignedAt: updated.assignedAt,
+    };
+  }
+
+  async updateCourseProgress(
+    drivenId: number,
+    courseId: number,
+    progress: number, // 0 a 100
+  ): Promise<UpdateCourseStatusResponse> {
+    // Reutilizamos validaciones existentes
+    await this.ensureCourseExists(courseId);
+    await this.drivenService.ensureDrivenExists(drivenId);
+
+    const assignment = await this.prisma.drivenCourse.findUnique({
+      where: { drivenId_courseId: { drivenId, courseId } },
+    });
+
+    if (!assignment)
+      throw new NotFoundException(`Driven ${drivenId} is not assigned to course ${courseId}`);
+
+    if (
+      assignment.status === CourseStatus.COMPLETED ||
+      assignment.status === CourseStatus.CANCELED
+    ) {
+      throw new ConflictException(
+        'Cannot update progress for a course that is completed or canceled',
+      );
+    }
+
+    // Limitar progress a 0-100
+    const normalizedProgress = Math.min(Math.max(progress, 0), 100);
+    const newStatus = normalizedProgress >= 100 ? CourseStatus.COMPLETED : assignment.status;
+
+    this.validateCourseStatusTransition(assignment.status, newStatus);
+
+    const updated = (await this.prisma.drivenCourse.update({
+      where: { id: assignment.id },
+      data: {
+        progress: normalizedProgress,
+        status: newStatus,
+      },
+      select: {
+        id: true,
+        drivenId: true,
+        courseId: true,
+        status: true,
+        progress: true,
+        assignedAt: true,
+      },
+    })) as {
+      id: number;
+      drivenId: number;
+      courseId: number;
+      status: CourseStatus;
+      progress: number;
+      assignedAt: Date;
+    };
+
+    return {
+      id: updated.id,
+      drivenId: updated.drivenId,
+      courseId: updated.courseId,
+      status: updated.status,
+      progress: updated.progress,
       assignedAt: updated.assignedAt,
     };
   }

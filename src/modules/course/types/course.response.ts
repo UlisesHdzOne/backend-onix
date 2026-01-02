@@ -22,5 +22,6 @@ export type UpdateCourseStatusResponse = {
   drivenId: number;
   courseId: number;
   status: CourseStatus;
+  progress: number;
   assignedAt: Date;
 };

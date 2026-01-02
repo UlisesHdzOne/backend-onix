@@ -66,6 +66,7 @@ model DrivenCourse {
 
   assignedAt DateTime @default(now())
   status CourseStatus @default(IN_PROGRESS)
+  progress Int @default(0) //Nuevo campo para el progreso (0-100)
 
   @@unique([drivenId, courseId]) // 🚨 Regla clave: no duplicados
 }
