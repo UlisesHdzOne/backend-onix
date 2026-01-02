@@ -3,8 +3,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { DrivenService } from '../../modules/driven/driven.service';
-import { CourseResponse } from './types/course.response';
+import {
+  AssignCourseWithRelationsResponse,
+  CourseResponse,
+  UpdateCourseStatusResponse,
+} from './types/course.response';
 import { CourseStatus } from '@prisma/client';
+import { COURSE_STATUS_TRANSITIONS } from './domain/course-status.transitions';
 
 @Injectable()
 export class CourseService {
@@ -98,11 +103,26 @@ export class CourseService {
     }
   }
 
+  private validateCourseStatusTransition(current: CourseStatus, next: CourseStatus) {
+    const allowed = COURSE_STATUS_TRANSITIONS[current] ?? [];
+
+    if (current === next) {
+      throw new ConflictException('Status is already set');
+    }
+
+    if (!allowed.includes(next)) {
+      throw new ConflictException(`Invalid status transition from ${current} to ${next}`);
+    }
+  }
+
   // ================================
   // REGLAS DE DOMINIO / RELACIONES
   // ================================
 
-  async assignCourseToDriven(drivenId: number, courseId: number) {
+  async assignCourseToDriven(
+    drivenId: number,
+    courseId: number,
+  ): Promise<AssignCourseWithRelationsResponse> {
     await this.ensureCourseExists(courseId);
     await this.drivenService.ensureDrivenExists(drivenId);
 
@@ -112,9 +132,24 @@ export class CourseService {
     if (existing)
       throw new ConflictException(`Driven ${drivenId} is already assigned to course ${courseId}`);
 
-    return this.prisma.drivenCourse.create({
+    const assignment = await this.prisma.drivenCourse.create({
       data: { drivenId, courseId, status: CourseStatus.IN_PROGRESS },
+      include: {
+        course: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
+
+    return {
+      id: assignment.id,
+      status: assignment.status,
+      assignedAt: assignment.assignedAt,
+      course: assignment.course,
+    };
   }
 
   async removeDrivenFromCourse(drivenId: number, courseId: number) {
@@ -127,13 +162,30 @@ export class CourseService {
     return this.prisma.drivenCourse.delete({ where: { id: assignment.id } });
   }
 
-  async updateCourseStatus(drivenId: number, courseId: number, status: CourseStatus) {
+  async updateCourseStatus(
+    drivenId: number,
+    courseId: number,
+    status: CourseStatus,
+  ): Promise<UpdateCourseStatusResponse> {
     const assignment = await this.prisma.drivenCourse.findUnique({
       where: { drivenId_courseId: { drivenId, courseId } },
     });
     if (!assignment)
       throw new NotFoundException(`Driven ${drivenId} is not assigned to course ${courseId}`);
 
-    return this.prisma.drivenCourse.update({ where: { id: assignment.id }, data: { status } });
+    this.validateCourseStatusTransition(assignment.status, status);
+
+    const updated = await this.prisma.drivenCourse.update({
+      where: { id: assignment.id },
+      data: { status },
+    });
+
+    return {
+      id: updated.id,
+      drivenId: updated.drivenId,
+      courseId: updated.courseId,
+      status: updated.status,
+      assignedAt: updated.assignedAt,
+    };
   }
 }
