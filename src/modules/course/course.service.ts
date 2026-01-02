@@ -9,7 +9,7 @@ import {
   UpdateCourseStatusResponse,
 } from './types/course.response';
 import { CourseStatus } from '@prisma/client';
-import { COURSE_STATUS_TRANSITIONS } from './domain/course-status.transitions';
+import { isValidTransition, COURSE_STATUS_TRANSITIONS } from './domain/course-status.transitions';
 
 @Injectable()
 export class CourseService {
@@ -104,14 +104,15 @@ export class CourseService {
   }
 
   private validateCourseStatusTransition(current: CourseStatus, next: CourseStatus) {
-    const allowed = COURSE_STATUS_TRANSITIONS[current] ?? [];
-
     if (current === next) {
-      throw new ConflictException('Status is already set');
+      throw new ConflictException('Status is already set to ' + current);
     }
 
-    if (!allowed.includes(next)) {
-      throw new ConflictException(`Invalid status transition from ${current} to ${next}`);
+    if (!isValidTransition(current, next)) {
+      throw new ConflictException(
+        `Invalid status transition from ${current} to ${next}. ` +
+          `Allowed: ${COURSE_STATUS_TRANSITIONS[current].join(', ') || 'none'}`,
+      );
     }
   }
 

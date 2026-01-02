@@ -15,6 +15,8 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 import { UpdateCourseStatusDto } from './dto/update-course-status.dto';
 import { UpdateCourseProgressDto } from './dto/update-course-progress.dto';
 import { UpdateCourseStatusResponse } from './types/course.response';
+import { COURSE_STATUS_TRANSITIONS } from './domain/course-status.transitions';
+import { CourseStatus } from '@prisma/client';
 
 @Controller('course')
 export class CourseController {
@@ -72,5 +74,13 @@ export class CourseController {
     @Body() dto: UpdateCourseProgressDto,
   ): Promise<UpdateCourseStatusResponse> {
     return this.courseService.updateCourseProgress(drivenId, courseId, dto.progress);
+  }
+
+  @Get('transitions/:status')
+  getAllowedTransitions(@Param('status') status: CourseStatus) {
+    return {
+      from: status,
+      allowed: COURSE_STATUS_TRANSITIONS[status] || [],
+    };
   }
 }
