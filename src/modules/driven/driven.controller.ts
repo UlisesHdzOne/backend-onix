@@ -27,8 +27,9 @@ export class DrivenController {
   findAllDriven(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('search') search?: string,
   ) {
-    return this.drivenService.findAllDriven(page, limit); // Obtiene todos los drivens con paginación
+    return this.drivenService.findAllDriven(page, limit, search); // Obtiene todos los drivens con paginación
   }
 
   @Get('with-vehicles')

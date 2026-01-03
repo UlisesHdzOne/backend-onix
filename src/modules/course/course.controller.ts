@@ -33,8 +33,10 @@ export class CourseController {
   async findAllCourses(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: boolean,
   ) {
-    return this.courseService.findAllCourses(page, limit); // Obtiene todos los cursos
+    return this.courseService.findAllCourses(page, limit, search, isActive); // Obtiene todos los cursos
   }
 
   @Put(':id')
