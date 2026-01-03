@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   DefaultValuePipe,
@@ -28,8 +29,29 @@ export class VehiclesController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('search') search?: string,
+    @Query('drivenId') drivenId?: string, // ← Recibe como string
   ) {
-    return this.vehiclesService.findAllVehicles(page, limit, search); // Obtiene todos los vehicles
+    // Lógica para manejar drivenId
+    let drivenIdFilter: number | null | undefined = undefined;
+
+    if (drivenId !== undefined) {
+      if (drivenId.toLowerCase() === 'null' || drivenId === '') {
+        // Caso 1: Buscar vehículos SIN conductor (disponibles)
+        drivenIdFilter = null;
+      } else {
+        // Caso 2: Buscar vehículos de un conductor específico
+        const parsed = parseInt(drivenId, 10);
+        if (isNaN(parsed)) {
+          throw new BadRequestException(
+            'drivenId must be a valid number, "null" (for unassigned vehicles), or empty string',
+          );
+        }
+        drivenIdFilter = parsed;
+      }
+    }
+    // Caso 3: Si drivenId es undefined, no aplicamos filtro (todos los vehículos)
+
+    return this.vehiclesService.findAllVehicles(page, limit, search, drivenIdFilter);
   }
 
   @Patch(':id')

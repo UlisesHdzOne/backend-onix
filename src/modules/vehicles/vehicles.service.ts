@@ -31,11 +31,12 @@ export class VehiclesService {
 
   // Obtiene todos los Vehicles.
 
+  // Cambia esta función en vehicles.service.ts:
   async findAllVehicles(
     page: number = PaginationHelper.DEFAULT_PAGE,
     limit: number = PaginationHelper.DEFAULT_LIMIT,
     search?: string,
-    drivenId?: number,
+    drivenId?: number | null, // ← Cambia de number? a number | null | undefined
   ): Promise<PaginatedResponse<VehicleResponse>> {
     const { skip, take } = PaginationHelper.validate(page, limit);
 
@@ -45,7 +46,8 @@ export class VehiclesService {
       where.name = { contains: search, mode: 'insensitive' };
     }
 
-    if (drivenId) {
+    // CAMBIO IMPORTANTE: drivenId puede ser null, undefined, o number
+    if (drivenId !== undefined) {
       where.drivenId = drivenId;
     }
 
