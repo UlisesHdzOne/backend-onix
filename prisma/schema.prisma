@@ -17,6 +17,12 @@ enum CourseStatus {
   COMPLETED
   CANCELED
 }
+
+enum InstructorStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
   
 model Driven {
   id Int      @id @default(autoincrement())
@@ -34,6 +40,10 @@ model Driven {
   isActive  Boolean         @default(true)
 
   // Relaciones
+
+  instructorId Int?
+  instructor Instructor? @relation(fields: [instructorId], references: [id])
+
   drivens   DrivenCourse[]  // M:N
 
   createdAt DateTime @default(now())
@@ -63,10 +73,23 @@ model DrivenCourse {
   // Relaciones
   driven    Driven  @relation(fields: [drivenId], references: [id])
   course    Course  @relation(fields: [courseId], references: [id])
-
+  
   assignedAt DateTime @default(now())
   status CourseStatus @default(IN_PROGRESS)
   progress Int @default(0) //Nuevo campo para el progreso (0-100)
 
   @@unique([drivenId, courseId]) // 🚨 Regla clave: no duplicados
+}
+
+model Instructor {
+  id     Int @id @default(autoincrement())
+  name   String @unique
+  email  String @unique
+  status InstructorStatus @default(ACTIVE)
+
+  // Relaciones
+  courses Course[] // 1:N
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

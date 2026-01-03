@@ -34,13 +34,9 @@ export class CourseService {
   }
 
   async findAllCourses(): Promise<CourseResponse[]> {
-    const courses = await this.prisma.course.findMany(); // Obtener todos los courses
-
-    return courses.map((course) => ({
-      id: course.id,
-      name: course.name,
-      isActive: course.isActive,
-    }));
+    return this.prisma.course.findMany({
+      select: { id: true, name: true, isActive: true },
+    });
   }
 
   async updateCourse(id: number, dto: UpdateCourseDto): Promise<CourseResponse> {
