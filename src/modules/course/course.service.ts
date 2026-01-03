@@ -8,8 +8,10 @@ import {
   CourseResponse,
   UpdateCourseStatusResponse,
 } from './types/course.response';
-import { CourseStatus } from '@prisma/client';
+import { CourseStatus, Prisma } from '@prisma/client';
 import { isValidTransition, COURSE_STATUS_TRANSITIONS } from './domain/course-status.transitions';
+import { PaginationHelper } from '../../common/helpers/pagination.helper';
+import { PaginatedResponse } from '../../common/types/pagination.types';
 
 @Injectable()
 export class CourseService {
@@ -33,10 +35,43 @@ export class CourseService {
     };
   }
 
-  async findAllCourses(): Promise<CourseResponse[]> {
-    return this.prisma.course.findMany({
-      select: { id: true, name: true, isActive: true },
-    });
+  async findAllCourses(
+    page: number = PaginationHelper.DEFAULT_PAGE,
+    limit: number = PaginationHelper.DEFAULT_LIMIT,
+    search?: string,
+    isActive?: boolean,
+  ): Promise<PaginatedResponse<CourseResponse>> {
+    const { skip, take } = PaginationHelper.validate(page, limit);
+
+    const where: Prisma.CourseWhereInput = {};
+
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    const [courses, total] = await Promise.all([
+      this.prisma.course.findMany({
+        where,
+        skip,
+        take,
+        select: { id: true, name: true, isActive: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.course.count({ where }),
+    ]);
+
+    return {
+      data: courses.map((course) => ({
+        id: course.id,
+        name: course.name,
+        isActive: course.isActive,
+      })),
+      meta: PaginationHelper.buildMeta(page, limit, total),
+    };
   }
 
   async updateCourse(id: number, dto: UpdateCourseDto): Promise<CourseResponse> {

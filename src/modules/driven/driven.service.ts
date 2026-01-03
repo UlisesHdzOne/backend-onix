@@ -3,6 +3,9 @@ import { CreateDrivenDto } from './dto/create-driven.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateDrivenDto } from './dto/update-driven.dto';
 import { DrivenResponse } from './types/driven.response';
+import { PaginationHelper } from '../../common/helpers/pagination.helper';
+import { PaginatedResponse } from '../../common/types/pagination.types';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class DrivenService {
@@ -23,12 +26,34 @@ export class DrivenService {
   }
 
   // Obtiene todos los Drivens.
-  async findAllDriven(): Promise<DrivenResponse[]> {
-    const drivens = await this.prisma.driven.findMany();
-    return drivens.map((driven) => ({
-      id: driven.id,
-      name: driven.name,
-    }));
+  async findAllDriven(
+    page: number = PaginationHelper.DEFAULT_PAGE,
+    limit: number = PaginationHelper.DEFAULT_LIMIT,
+    search?: string,
+  ): Promise<PaginatedResponse<DrivenResponse>> {
+    const { skip, take } = PaginationHelper.validate(page, limit);
+
+    const where: Prisma.DrivenWhereInput = {};
+
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    const [drivens, total] = await Promise.all([
+      this.prisma.driven.findMany({
+        where,
+        skip,
+        take,
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.driven.count({ where }),
+    ]);
+
+    return {
+      data: drivens.map((driven) => ({ id: driven.id, name: driven.name })),
+      meta: PaginationHelper.buildMeta(page, limit, total),
+    };
   }
 
   // Obtiene todos los Drivens con sus vehículos.

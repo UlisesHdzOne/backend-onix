@@ -4,6 +4,9 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { DrivenService } from '../driven/driven.service';
 import { VehicleResponse } from './types/vehicles.response';
+import { PaginationHelper } from 'src/common/helpers/pagination.helper';
+import { PaginatedResponse } from '../../common/types/pagination.types';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class VehiclesService {
@@ -27,14 +30,56 @@ export class VehiclesService {
   }
 
   // Obtiene todos los Vehicles.
-  async findAllVehicles(): Promise<VehicleResponse[]> {
-    const vehicles = await this.prisma.vehicle.findMany();
-    return vehicles.map((vehicle) => ({
-      id: vehicle.id,
-      name: vehicle.name,
-    }));
-  }
 
+  async findAllVehicles(
+    page: number = PaginationHelper.DEFAULT_PAGE,
+    limit: number = PaginationHelper.DEFAULT_LIMIT,
+    search?: string,
+    drivenId?: number,
+  ): Promise<PaginatedResponse<VehicleResponse>> {
+    const { skip, take } = PaginationHelper.validate(page, limit);
+
+    const where: Prisma.VehicleWhereInput = {};
+
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    if (drivenId) {
+      where.drivenId = drivenId;
+    }
+
+    const [vehicles, total] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where,
+        skip,
+        take,
+        select: {
+          id: true,
+          name: true,
+          driven: {
+            select: { id: true, name: true },
+          },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.vehicle.count({ where }),
+    ]);
+
+    return {
+      data: vehicles.map((vehicle) => ({
+        id: vehicle.id,
+        name: vehicle.name,
+        driven: vehicle.driven
+          ? {
+              id: vehicle.driven.id,
+              name: vehicle.driven.name,
+            }
+          : undefined,
+      })),
+      meta: PaginationHelper.buildMeta(page, limit, total),
+    };
+  }
   // Actualiza un Vehicle existente.
   async updateVehicle(vehicleId: number, dto: UpdateVehicleDto): Promise<VehicleResponse> {
     await this.findVehicleById(vehicleId);

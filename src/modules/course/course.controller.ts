@@ -8,6 +8,8 @@ import {
   Delete,
   Patch,
   ParseIntPipe,
+  Query,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { CourseService } from './course.service';
 import { CreateCourseDto } from './dto/create-course.dto';
@@ -28,8 +30,11 @@ export class CourseController {
   }
 
   @Get()
-  async findAllCourses() {
-    return this.courseService.findAllCourses(); // Obtiene todos los cursos
+  async findAllCourses(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.courseService.findAllCourses(page, limit); // Obtiene todos los cursos
   }
 
   @Put(':id')

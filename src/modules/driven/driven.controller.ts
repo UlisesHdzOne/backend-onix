@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Delete, ParseIntPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Delete,
+  ParseIntPipe,
+  Query,
+  DefaultValuePipe,
+} from '@nestjs/common';
 import { DrivenService } from './driven.service';
 import { CreateDrivenDto } from './dto/create-driven.dto';
 import { UpdateDrivenDto } from './dto/update-driven.dto';
@@ -13,8 +24,11 @@ export class DrivenController {
   }
 
   @Get()
-  findAllDriven() {
-    return this.drivenService.findAllDriven(); // Obtiene todos los drivens
+  findAllDriven(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.drivenService.findAllDriven(page, limit); // Obtiene todos los drivens con paginación
   }
 
   @Get('with-vehicles')
