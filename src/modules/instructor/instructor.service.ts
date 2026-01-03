@@ -1,9 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { InstructorResponse } from './types/instructor.response';
+import { InstructorResponse, PaginatedInstructorResponse } from './types/instructor.response';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateInstructorDto } from './dto/update-instructor.dto';
-import { InstructorStatus } from '@prisma/client';
+import { InstructorStatus, Prisma } from '@prisma/client';
 import {
   INSTRUCTOR_STATUS_TRANSITIONS_INSTRUCTOR,
   isValidTransitionInstructor,
@@ -11,6 +16,11 @@ import {
 
 @Injectable()
 export class InstructorService {
+  private static readonly DEFAULT_PAGE = 1;
+  private static readonly DEFAULT_LIMIT = 10;
+  private static readonly MIN_PAGE = 1;
+  private static readonly MIN_LIMIT = 1;
+  private static readonly MAX_LIMIT = 100;
   constructor(private readonly prisma: PrismaService) {}
 
   async createInstructor(dto: CreateInstructorDto): Promise<InstructorResponse> {
@@ -36,10 +46,70 @@ export class InstructorService {
     return instructor;
   }
 
-  async findAllInstructors(): Promise<InstructorResponse[]> {
-    return this.prisma.instructor.findMany({
-      select: { id: true, email: true, name: true, status: true, createdAt: true, updatedAt: true },
-    });
+  // Cambia el método existente:
+  async findAllInstructors(
+    page: number = InstructorService.DEFAULT_PAGE,
+    limit: number = InstructorService.DEFAULT_LIMIT,
+    search?: string,
+    status?: InstructorStatus,
+  ): Promise<PaginatedInstructorResponse> {
+    // Validar parámetros
+    if (page < InstructorService.MIN_PAGE) {
+      throw new BadRequestException('Page must be greater than 0');
+    }
+
+    if (limit < InstructorService.MIN_LIMIT || limit > InstructorService.MAX_LIMIT) {
+      throw new BadRequestException('Limit must be between 1 and 100');
+    }
+
+    const skip = (page - 1) * limit;
+
+    // Construir where clause dinámico
+    const where: Prisma.InstructorWhereInput = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Ejecutar queries en paralelo
+    const [instructors, total] = await Promise.all([
+      this.prisma.instructor.findMany({
+        where,
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'desc' }, // Ordenar por más reciente primero
+      }),
+      this.prisma.instructor.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: instructors,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > InstructorService.MIN_PAGE,
+      },
+    };
   }
 
   async updateInstructor(id: number, dto: UpdateInstructorDto): Promise<InstructorResponse> {
