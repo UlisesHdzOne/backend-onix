@@ -4,7 +4,6 @@ import {
   Post,
   Body,
   Param,
-  Put,
   Delete,
   Patch,
   ParseIntPipe,
@@ -18,15 +17,18 @@ import { UpdateCourseStatusDto } from './dto/update-course-status.dto';
 import { UpdateCourseProgressDto } from './dto/update-course-progress.dto';
 import { UpdateCourseStatusResponse } from './types/course.response';
 import { COURSE_STATUS_TRANSITIONS } from './domain/course-status.transitions';
-import { CourseStatus } from '@prisma/client';
+import { CourseLifecycleStatus, DrivenCourseStatus } from '@prisma/client';
 
 @Controller('course')
 export class CourseController {
   constructor(private readonly courseService: CourseService) {}
+  // ================================
+  // CRUD PRINCIPAL
+  // ================================
 
   @Post()
   async createCourse(@Body() dto: CreateCourseDto) {
-    return this.courseService.createCourse(dto); // Crea un nuevo curso
+    return this.courseService.createCourse(dto);
   }
 
   @Get()
@@ -34,19 +36,49 @@ export class CourseController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('search') search?: string,
-    @Query('isActive') isActive?: boolean,
+    @Query('isActive') isActive?: string,
+    @Query('statusLifecycle') statusLifecycle?: CourseLifecycleStatus,
   ) {
-    return this.courseService.findAllCourses(page, limit, search, isActive); // Obtiene todos los cursos
+    return this.courseService.findAllCourses(
+      page,
+      limit,
+      search,
+      isActive !== undefined ? isActive === 'true' : undefined,
+      statusLifecycle,
+    );
   }
 
-  @Put(':id')
+  @Get('transitions/:status')
+  getAllowedTransitions(@Param('status') status: DrivenCourseStatus) {
+    return {
+      from: status,
+      allowed: COURSE_STATUS_TRANSITIONS[status] || [],
+    };
+  }
+
+  @Patch(':id')
   async updateCourse(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateCourseDto) {
-    return this.courseService.updateCourse(id, dto); // Actualiza un curso existente
+    return this.courseService.updateCourse(id, dto);
   }
 
   @Delete(':id')
   async removeCourse(@Param('id', ParseIntPipe) id: number) {
-    return this.courseService.removeCourse(id); // Elimina un curso por su ID
+    return this.courseService.removeCourse(id);
+  }
+
+  // ================================
+  // MÉTODOS DE RELACIÓN CON DRIVEN
+  // ================================
+
+  @Get('drivens/:drivenId/courses')
+  async findCoursesByDriven(
+    @Param('drivenId', ParseIntPipe) drivenId: number,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: boolean,
+  ) {
+    return this.courseService.findCoursesByDriven(drivenId, page, limit, search, isActive);
   }
 
   @Post(':courseId/driven/:drivenId')
@@ -54,15 +86,7 @@ export class CourseController {
     @Param('courseId', ParseIntPipe) courseId: number,
     @Param('drivenId', ParseIntPipe) drivenId: number,
   ) {
-    return this.courseService.assignCourseToDriven(drivenId, courseId); // Asigna un curso a un driven
-  }
-
-  @Delete(':courseId/driven/:drivenId')
-  async removeDrivenFromCourse(
-    @Param('courseId', ParseIntPipe) courseId: number,
-    @Param('drivenId', ParseIntPipe) drivenId: number,
-  ) {
-    return this.courseService.removeDrivenFromCourse(drivenId, courseId); // Remueve un driven de un curso
+    return this.courseService.assignCourseToDriven(drivenId, courseId);
   }
 
   @Patch(':courseId/driven/:drivenId/status')
@@ -71,7 +95,7 @@ export class CourseController {
     @Param('drivenId', ParseIntPipe) drivenId: number,
     @Body() dto: UpdateCourseStatusDto,
   ) {
-    return this.courseService.updateCourseStatus(drivenId, courseId, dto.status); // Actualiza el estado de un driven en un curso
+    return this.courseService.updateCourseStatus(drivenId, courseId, dto.status);
   }
 
   @Patch(':courseId/driven/:drivenId/progress')
@@ -83,11 +107,11 @@ export class CourseController {
     return this.courseService.updateCourseProgress(drivenId, courseId, dto.progress);
   }
 
-  @Get('transitions/:status')
-  getAllowedTransitions(@Param('status') status: CourseStatus) {
-    return {
-      from: status,
-      allowed: COURSE_STATUS_TRANSITIONS[status] || [],
-    };
+  @Delete(':courseId/driven/:drivenId')
+  async removeDrivenFromCourse(
+    @Param('courseId', ParseIntPipe) courseId: number,
+    @Param('drivenId', ParseIntPipe) drivenId: number,
+  ) {
+    return this.courseService.removeDrivenFromCourse(drivenId, courseId);
   }
 }

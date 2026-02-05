@@ -2,7 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { CreateDrivenDto } from './dto/create-driven.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateDrivenDto } from './dto/update-driven.dto';
-import { DrivenResponse } from './types/driven.response';
+import { DrivenDetailResponse, DrivenListItemResponse } from './types/driven.response';
 import { PaginationHelper } from '../../common/helpers/pagination.helper';
 import { PaginatedResponse } from '../../common/types/pagination.types';
 import { Prisma } from '@prisma/client';
@@ -16,12 +16,15 @@ export class DrivenService {
   // ================================
 
   // Crea un Driven.
-  async createDriven(dto: CreateDrivenDto): Promise<DrivenResponse> {
+  async createDriven(dto: CreateDrivenDto): Promise<DrivenDetailResponse> {
     await this.validateDrivenNameNotExists(dto.name);
     const driven = await this.prisma.driven.create({ data: { name: dto.name } });
     return {
       id: driven.id,
       name: driven.name,
+      isActive: driven.isActive,
+      createdAt: driven.createdAt,
+      updatedAt: driven.updatedAt,
     };
   }
 
@@ -30,13 +33,17 @@ export class DrivenService {
     page: number = PaginationHelper.DEFAULT_PAGE,
     limit: number = PaginationHelper.DEFAULT_LIMIT,
     search?: string,
-  ): Promise<PaginatedResponse<DrivenResponse>> {
+    isActive?: boolean,
+  ): Promise<PaginatedResponse<DrivenListItemResponse>> {
     const { skip, take } = PaginationHelper.validate(page, limit);
-
     const where: Prisma.DrivenWhereInput = {};
 
     if (search) {
       where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
     }
 
     const [drivens, total] = await Promise.all([
@@ -44,25 +51,42 @@ export class DrivenService {
         where,
         skip,
         take,
-        select: { id: true, name: true },
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: { select: { courses: true } },
+        },
         orderBy: { name: 'asc' },
       }),
       this.prisma.driven.count({ where }),
     ]);
 
     return {
-      data: drivens.map((driven) => ({ id: driven.id, name: driven.name })),
+      data: drivens.map((driven) => ({
+        id: driven.id,
+        name: driven.name,
+        isActive: driven.isActive,
+        createdAt: driven.createdAt,
+        updatedAt: driven.updatedAt,
+        coursesCount: driven._count.courses,
+      })),
       meta: PaginationHelper.buildMeta(page, limit, total),
     };
   }
 
   // Obtiene todos los Drivens con sus vehículos.
-  async findAllDrivenWithVehicle(): Promise<DrivenResponse[]> {
+  async findAllDrivenWithVehicle(): Promise<DrivenDetailResponse[]> {
     const drivens = await this.prisma.driven.findMany({ include: { vehicles: true } });
 
     return drivens.map((driven) => ({
       id: driven.id,
       name: driven.name,
+      isActive: driven.isActive,
+      createdAt: driven.createdAt,
+      updatedAt: driven.updatedAt,
       vehicles: driven.vehicles.map((vehicle) => ({
         id: vehicle.id,
         name: vehicle.name,
@@ -71,7 +95,7 @@ export class DrivenService {
   }
 
   // Actualiza un Driven existente.
-  async updateDriven(id: number, dto: UpdateDrivenDto): Promise<DrivenResponse> {
+  async updateDriven(id: number, dto: UpdateDrivenDto): Promise<DrivenDetailResponse> {
     const current = await this.findDrivenById(id);
 
     // Si el nombre es diferente al actual
@@ -87,11 +111,14 @@ export class DrivenService {
     return {
       id: updated.id,
       name: updated.name,
+      isActive: updated.isActive,
+      createdAt: updated.createdAt,
+      updatedAt: updated.updatedAt,
     };
   }
 
   // Elimina un Driven.
-  async removeDriven(id: number): Promise<DrivenResponse> {
+  async removeDriven(id: number): Promise<DrivenDetailResponse> {
     const driven = await this.findDrivenById(id);
 
     if (driven.vehicles.length > 0) {
@@ -107,6 +134,9 @@ export class DrivenService {
     return {
       id: deleted.id,
       name: deleted.name,
+      isActive: deleted.isActive,
+      createdAt: deleted.createdAt,
+      updatedAt: deleted.updatedAt,
     };
   }
 

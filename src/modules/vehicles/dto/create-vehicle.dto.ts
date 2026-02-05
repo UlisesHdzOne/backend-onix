@@ -1,7 +1,8 @@
-import { IsString, Length } from 'class-validator';
+import { IsNotEmpty, IsString, Length } from 'class-validator';
 
 export class CreateVehicleDto {
   @IsString()
-  @Length(1, 50)
+  @IsNotEmpty()
+  @Length(5, 50)
   name!: string;
 }

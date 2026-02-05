@@ -14,7 +14,7 @@ import { DrivenService } from './driven.service';
 import { CreateDrivenDto } from './dto/create-driven.dto';
 import { UpdateDrivenDto } from './dto/update-driven.dto';
 
-@Controller('driven')
+@Controller('drivens')
 export class DrivenController {
   constructor(private readonly drivenService: DrivenService) {}
 
@@ -28,8 +28,14 @@ export class DrivenController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     @Query('search') search?: string,
+    @Query('isActive') isActive?: string,
   ) {
-    return this.drivenService.findAllDriven(page, limit, search); // Obtiene todos los drivens con paginación
+    return this.drivenService.findAllDriven(
+      page,
+      limit,
+      search,
+      isActive !== undefined ? isActive === 'true' : undefined,
+    );
   }
 
   @Get('with-vehicles')

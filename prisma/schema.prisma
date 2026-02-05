@@ -12,7 +12,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum CourseStatus {
+enum DrivenCourseStatus {
   IN_PROGRESS
   COMPLETED
   CANCELED
@@ -24,6 +24,11 @@ enum InstructorStatus {
   INACTIVE
 }
   
+  enum CourseLifecycleStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
 model Driven {
   id Int      @id @default(autoincrement())
   name String @unique
@@ -32,12 +37,19 @@ model Driven {
   vehicles Vehicle[] // 1:N
   profile Profile? // 1:1
   courses DrivenCourse[] // M:N
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
 }
 
   model Course {
   id        Int             @id @default(autoincrement())
   name      String          @unique
+  description    String?
   isActive  Boolean         @default(true)
+  status         CourseLifecycleStatus @default(DRAFT)
+  durationHours  Int?
 
   // Relaciones
 
@@ -75,7 +87,7 @@ model DrivenCourse {
   course    Course  @relation(fields: [courseId], references: [id])
   
   assignedAt DateTime @default(now())
-  status CourseStatus @default(IN_PROGRESS)
+  status DrivenCourseStatus @default(IN_PROGRESS)
   progress Int @default(0) //Nuevo campo para el progreso (0-100)
 
   @@unique([drivenId, courseId]) // 🚨 Regla clave: no duplicados

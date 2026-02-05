@@ -1,9 +1,9 @@
 import { IsEnum } from 'class-validator';
-import { CourseStatus } from '@prisma/client';
+import { DrivenCourseStatus } from '@prisma/client';
 
 export class UpdateCourseStatusDto {
-  @IsEnum(CourseStatus, {
+  @IsEnum(DrivenCourseStatus, {
     message: 'Status must be one of: IN_PROGRESS, COMPLETED, CANCELED',
   })
-  status!: CourseStatus;
+  status!: DrivenCourseStatus;
 }

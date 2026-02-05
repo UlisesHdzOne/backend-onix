@@ -6,9 +6,10 @@ import { DrivenService } from '../../modules/driven/driven.service';
 import {
   AssignCourseWithRelationsResponse,
   CourseResponse,
+  DrivenCourseListItemResponse,
   UpdateCourseStatusResponse,
 } from './types/course.response';
-import { CourseStatus, Prisma } from '@prisma/client';
+import { CourseLifecycleStatus, DrivenCourseStatus, Prisma } from '@prisma/client';
 import { isValidTransition, COURSE_STATUS_TRANSITIONS } from './domain/course-status.transitions';
 import { PaginationHelper } from '../../common/helpers/pagination.helper';
 import { PaginatedResponse } from '../../common/types/pagination.types';
@@ -31,7 +32,10 @@ export class CourseService {
     return {
       id: course.id,
       name: course.name,
+      description: course.description ?? undefined,
       isActive: course.isActive,
+      status: course.status,
+      durationHours: course.durationHours ?? undefined,
     };
   }
 
@@ -40,6 +44,7 @@ export class CourseService {
     limit: number = PaginationHelper.DEFAULT_LIMIT,
     search?: string,
     isActive?: boolean,
+    statusLifecycle?: CourseLifecycleStatus,
   ): Promise<PaginatedResponse<CourseResponse>> {
     const { skip, take } = PaginationHelper.validate(page, limit);
 
@@ -53,12 +58,23 @@ export class CourseService {
       where.isActive = isActive;
     }
 
+    if (statusLifecycle) {
+      where.status = statusLifecycle;
+    }
+
     const [courses, total] = await Promise.all([
       this.prisma.course.findMany({
         where,
         skip,
         take,
-        select: { id: true, name: true, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          isActive: true,
+          status: true,
+          durationHours: true,
+        },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.course.count({ where }),
@@ -68,25 +84,57 @@ export class CourseService {
       data: courses.map((course) => ({
         id: course.id,
         name: course.name,
+        description: course.description ?? undefined,
         isActive: course.isActive,
+        status: course.status,
+        durationHours: course.durationHours ?? undefined,
       })),
       meta: PaginationHelper.buildMeta(page, limit, total),
     };
   }
 
   async updateCourse(id: number, dto: UpdateCourseDto): Promise<CourseResponse> {
-    await this.ensureCourseExists(id); // Validar existencia
+    const course = await this.prisma.course.findUnique({
+      where: { id },
+    });
 
-    if (dto.name) {
+    if (!course) {
+      throw new NotFoundException({
+        field: 'id',
+        message: 'Course not found',
+      });
+    }
+
+    // 👉 validar unicidad solo si cambia el nombre
+    if (dto.name !== undefined && dto.name !== course.name) {
       await this.validateCourseNameNotExists(dto.name);
     }
 
-    const updated = await this.prisma.course.update({ where: { id }, data: dto }); // Actualizar course
+    const data: Prisma.CourseUpdateInput = {
+      ...(dto.name !== undefined && { name: dto.name }),
+      ...(dto.description !== undefined && {
+        description: dto.description === '' ? null : dto.description,
+      }),
+      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      ...(dto.status !== undefined && { status: dto.status }),
+      ...(dto.durationHours !== undefined && {
+        durationHours: dto.durationHours,
+      }),
+    };
 
+    const updated = await this.prisma.course.update({
+      where: { id },
+      data,
+    });
+
+    // 👉 normalización del response (regla clave)
     return {
       id: updated.id,
       name: updated.name,
+      description: updated.description ?? undefined,
       isActive: updated.isActive,
+      status: updated.status,
+      durationHours: updated.durationHours ?? undefined,
     };
   }
 
@@ -99,7 +147,11 @@ export class CourseService {
     });
 
     if (hasDrivens) {
-      throw new ConflictException(`Course ${id} has drivens assigned and cannot be deleted`);
+      // throw new ConflictException(`Course ${id} has drivens assigned and cannot be deleted`);
+      throw new ConflictException({
+        field: 'id',
+        message: 'Course has drivens assigned and cannot be deleted',
+      });
     }
 
     const deleted = await this.prisma.course.delete({ where: { id } }); // Eliminar course
@@ -107,7 +159,63 @@ export class CourseService {
     return {
       id: deleted.id,
       name: deleted.name,
+      description: deleted.description ?? undefined,
       isActive: deleted.isActive,
+      status: deleted.status,
+      durationHours: deleted.durationHours ?? undefined,
+    };
+  }
+  //================================
+  // Metodos de relacion
+  //================================
+
+  async findCoursesByDriven(
+    drivenId: number,
+    page: number = PaginationHelper.DEFAULT_PAGE,
+    limit: number = PaginationHelper.DEFAULT_LIMIT,
+    search?: string,
+    isActive?: boolean,
+  ): Promise<PaginatedResponse<DrivenCourseListItemResponse>> {
+    await this.drivenService.ensureDrivenExists(drivenId);
+
+    const { skip, take } = PaginationHelper.validate(page, limit);
+
+    // Construir filtro
+    const where: Prisma.DrivenCourseWhereInput = {
+      drivenId,
+    };
+
+    if (search || isActive !== undefined) {
+      where.course = {
+        is: {
+          ...(search ? { name: { contains: search, mode: 'insensitive' } } : {}),
+          ...(isActive !== undefined ? { isActive } : {}),
+        },
+      };
+    }
+
+    // Total según filtros
+    const total = await this.prisma.drivenCourse.count({ where });
+
+    // Obtener la página actual
+    const assignments = await this.prisma.drivenCourse.findMany({
+      where,
+      include: { course: true },
+      skip,
+      take,
+      orderBy: { assignedAt: 'desc' },
+    });
+
+    return {
+      data: assignments.map((a) => ({
+        id: a.course.id,
+        name: a.course.name,
+        isActive: a.course.isActive,
+        status: a.status,
+        progress: a.progress,
+        assignedAt: a.assignedAt,
+      })),
+      meta: PaginationHelper.buildMeta(page, limit, total),
     };
   }
 
@@ -121,7 +229,12 @@ export class CourseService {
       where: { id },
       select: { id: true },
     });
-    if (!exists) throw new NotFoundException(`Course with id ${id} not found`);
+    // if (!exists) throw new NotFoundException(`Course with id ${id} not found`);
+    if (!exists)
+      throw new NotFoundException({
+        field: 'id',
+        message: 'Course not found',
+      });
   }
 
   async validateCourseNameNotExists(name: string): Promise<void> {
@@ -130,11 +243,14 @@ export class CourseService {
       select: { id: true },
     });
     if (course) {
-      throw new ConflictException(`Course with name ${name} already exists`);
+      throw new ConflictException({
+        field: 'name',
+        message: 'Course already exists',
+      });
     }
   }
 
-  private validateCourseStatusTransition(current: CourseStatus, next: CourseStatus) {
+  private validateCourseStatusTransition(current: DrivenCourseStatus, next: DrivenCourseStatus) {
     if (current === next) {
       throw new ConflictException('Status is already set to ' + current);
     }
@@ -165,7 +281,7 @@ export class CourseService {
       throw new ConflictException(`Driven ${drivenId} is already assigned to course ${courseId}`);
 
     const assignment = await this.prisma.drivenCourse.create({
-      data: { drivenId, courseId, status: CourseStatus.IN_PROGRESS },
+      data: { drivenId, courseId, status: DrivenCourseStatus.IN_PROGRESS },
       include: {
         course: {
           select: {
@@ -197,7 +313,7 @@ export class CourseService {
   async updateCourseStatus(
     drivenId: number,
     courseId: number,
-    status: CourseStatus,
+    status: DrivenCourseStatus,
   ): Promise<UpdateCourseStatusResponse> {
     const assignment = await this.prisma.drivenCourse.findUnique({
       where: { drivenId_courseId: { drivenId, courseId } },
@@ -222,7 +338,7 @@ export class CourseService {
       id: number;
       drivenId: number;
       courseId: number;
-      status: CourseStatus;
+      status: DrivenCourseStatus;
       progress: number;
       assignedAt: Date;
     };
@@ -254,8 +370,8 @@ export class CourseService {
       throw new NotFoundException(`Driven ${drivenId} is not assigned to course ${courseId}`);
 
     if (
-      assignment.status === CourseStatus.COMPLETED ||
-      assignment.status === CourseStatus.CANCELED
+      assignment.status === DrivenCourseStatus.COMPLETED ||
+      assignment.status === DrivenCourseStatus.CANCELED
     ) {
       throw new ConflictException(
         'Cannot update progress for a course that is completed or canceled',
@@ -264,7 +380,7 @@ export class CourseService {
 
     // Limitar progress a 0-100
     const normalizedProgress = Math.min(Math.max(progress, 0), 100);
-    const newStatus = normalizedProgress >= 100 ? CourseStatus.COMPLETED : assignment.status;
+    const newStatus = normalizedProgress >= 100 ? DrivenCourseStatus.COMPLETED : assignment.status;
 
     this.validateCourseStatusTransition(assignment.status, newStatus);
 
@@ -286,7 +402,7 @@ export class CourseService {
       id: number;
       drivenId: number;
       courseId: number;
-      status: CourseStatus;
+      status: DrivenCourseStatus;
       progress: number;
       assignedAt: Date;
     };

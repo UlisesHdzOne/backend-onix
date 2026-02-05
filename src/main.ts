@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { ValidationFilter } from './common/filters/validation.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,6 +11,7 @@ async function bootstrap() {
     // origin: 'http://localhost:3000', // Create React App
     credentials: true,
   });
+  app.useGlobalFilters(new ValidationFilter());
 
   app.useGlobalPipes(
     new ValidationPipe({

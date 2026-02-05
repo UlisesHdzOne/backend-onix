@@ -1,12 +1,12 @@
-import { CourseStatus } from '@prisma/client';
+import { DrivenCourseStatus } from '@prisma/client';
 
-export const COURSE_STATUS_TRANSITIONS: Record<CourseStatus, CourseStatus[]> = {
-  [CourseStatus.IN_PROGRESS]: [CourseStatus.COMPLETED, CourseStatus.CANCELED],
-  [CourseStatus.COMPLETED]: [],
-  [CourseStatus.CANCELED]: [],
+export const COURSE_STATUS_TRANSITIONS: Record<DrivenCourseStatus, DrivenCourseStatus[]> = {
+  [DrivenCourseStatus.IN_PROGRESS]: [DrivenCourseStatus.COMPLETED, DrivenCourseStatus.CANCELED],
+  [DrivenCourseStatus.COMPLETED]: [],
+  [DrivenCourseStatus.CANCELED]: [],
 };
 
 // Función de validación
-export function isValidTransition(current: CourseStatus, next: CourseStatus): boolean {
+export function isValidTransition(current: DrivenCourseStatus, next: DrivenCourseStatus): boolean {
   return COURSE_STATUS_TRANSITIONS[current]?.includes(next) ?? false;
 }

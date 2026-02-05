@@ -151,14 +151,21 @@ export class VehiclesService {
   // Valida que no exista un Vehicle con el mismo nombre.
   async validateVehicleNameNotExists(name: string) {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { name } });
-    if (vehicle) throw new ConflictException(`Vehicle with name ${name} already exists`);
+    if (vehicle)
+      throw new ConflictException({
+        field: 'name',
+        message: 'Vehicle already exists',
+      });
   }
 
   // Valida que el nombre no esté siendo usado por otro Vehicle.
   async validateVehicleNameNotUsedByAnother(vehicleId: number, name: string) {
     const vehicle = await this.prisma.vehicle.findUnique({ where: { name } });
     if (vehicle && vehicle.id !== vehicleId) {
-      throw new ConflictException(`Vehicle with name ${name} already exists`);
+      throw new ConflictException({
+        field: 'name',
+        message: 'Vehicle already exists',
+      });
     }
   }
 
